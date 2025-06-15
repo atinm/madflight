@@ -476,6 +476,26 @@ public:
                 *q2 = (float)((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
                 *q3 = (float)((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
                 *q0 = (float)sqrt(1.0 - ((*q1 * *q1) + (*q2 * *q2) + (*q3 * *q3)));
+
+                // Convert from Android LH to RH NED
+                float q[4] = {*q0, *q1, *q2, *q3};
+                const float qc_lh_to_rh[4] = { 0.0f, 1.0f, 0.0f, 0.0f }; // 180° about X
+
+                auto applyQuatCorrection = [](float q[4], const float qc[4]) {
+                    float w1 = qc[0], x1 = qc[1], y1 = qc[2], z1 = qc[3];
+                    float w2 = q[0],  x2 = q[1],  y2 = q[2],  z2 = q[3];
+                    q[0] = w1*w2 - x1*x2 - y1*y2 - z1*z2;
+                    q[1] = w1*x2 + x1*w2 + y1*z2 - z1*y2;
+                    q[2] = w1*y2 - x1*z2 + y1*w2 + z1*x2;
+                    q[3] = w1*z2 + x1*y2 - y1*x2 + z1*w2;
+                };
+
+                applyQuatCorrection(q, qc_lh_to_rh);
+
+                *q0 = q[0];
+                *q1 = q[1];
+                *q2 = q[2];
+                *q3 = q[3];
             }
         }
     }
