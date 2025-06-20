@@ -1,10 +1,10 @@
 /*
  *
  * Copyright (c) [2020] by InvenSense, Inc.
- * 
+ *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
@@ -520,7 +520,7 @@ typedef struct {
 	uint8_t int_status_aux2_agc_rdy                                                : 1;
 } int_aux2_status_t;
 
-#define REG_WHO_AM_I                                                                0x72
+#define WHO_AM_I                                                                0x72
 typedef struct {
 	uint8_t who_am_i                                                               : 8;
 } who_am_i_t;

@@ -1,10 +1,10 @@
 /*
  *
  * Copyright (c) [2020] by InvenSense, Inc.
- * 
+ *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
@@ -61,14 +61,14 @@ int inv_imu_get_who_am_i(inv_imu_device_t *s, uint8_t *who_am_i)
 {
 	int status;
 
-	status = inv_imu_read_reg(s, REG_WHO_AM_I, 1, who_am_i);
+	status = inv_imu_read_reg(s, WHO_AM_I, 1, who_am_i);
 
 	/* AN-000364
 	 * In I2C mode, after chip power-up, the host should perform one retry
-	 * on the very first I2C transaction if it receives a NACK 
+	 * on the very first I2C transaction if it receives a NACK
 	 */
 	if (s->transport.serif_type == UI_I2C && status)
-		status = inv_imu_read_reg(s, REG_WHO_AM_I, 1, who_am_i);
+		status = inv_imu_read_reg(s, WHO_AM_I, 1, who_am_i);
 
 	return status;
 }
@@ -279,7 +279,7 @@ int inv_imu_set_fifo_config(inv_imu_device_t *s, const inv_imu_fifo_config_t *fi
 	cfg.fifo_config0.fifo_mode = fifo_config->fifo_mode;
 
 	if (fifo_config->fifo_mode == FIFO_CONFIG0_FIFO_MODE_BYPASS) {
-		/* 
+		/*
 		 * Disabling FIFO:
 		 *  - Set `fifo_if_en` to 0
 		 *  - Set `fifo_mode` to BYPASS
@@ -290,7 +290,7 @@ int inv_imu_set_fifo_config(inv_imu_device_t *s, const inv_imu_fifo_config_t *fi
 		/* `fifo_mode` */
 		status |= inv_imu_write_reg(s, FIFO_CONFIG0, 1, (uint8_t *)&cfg.fifo_config0);
 	} else {
-		/* 
+		/*
 		 * Enabling FIFO:
 		 *  - Set `fifo_mode`
 		 *  - Set `fifo_if_en` to 1
