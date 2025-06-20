@@ -56,7 +56,11 @@ SOFTWARE.
   MF_PARAM( mag_cal_sx,        1, float, 'f') /*magnetometer x scale calibration*/ \
   MF_PARAM( mag_cal_sy,        1, float, 'f') /*magnetometer y scale calibration*/ \
   MF_PARAM( mag_cal_sz,        1, float, 'f') /*magnetometer z scale calibration*/ \
- \
+\
+  MF_PARAM( imu_cal_roll_bias, 0, float, 'f') /*roll bias calibration for sensor fusion IMUs*/ \
+  MF_PARAM( imu_cal_pitch_bias,0, float, 'f') /*pitch bias calibration for sensor fusion IMUs*/ \
+  MF_PARAM( imu_cal_yaw_bias,  0, float, 'f') /*yaw bias calibration for sensor fusion IMUs*/ \
+\
   MF_PARAM( bat_cal_v,         1, float, 'f') /*battery adc voltage scale calibration, value is actual_voltage_in_v / adc_reading*/ \
   MF_PARAM( bat_cal_i,         1, float, 'f') /*battery adc current scale calibration, value is actual_current_in_a / adc_reading, ina226: rshunt value in ohm*/ \
 \
@@ -251,12 +255,12 @@ namespace Cfg {
   #define MF_PARAM(name, defval, datatype, type, ...) + 1
     const uint16_t param_cnt = 0 MF_PARAM_LIST ;
   #undef MF_PARAM
-  
+
   //enums for madflight library parameters, generated from MF_PARAM_LIST
   #define MF_PARAM(name, defval, datatype, type, ...) enum class name##_enum { __VA_ARGS__ };
     MF_PARAM_LIST
   #undef MF_PARAM
-  
+
   //list of parameters (generate from MF_PARAM_LIST)
   #define MF_PARAM(name, defval, datatype, type, ...) {#name, defval, type, #__VA_ARGS__},
     struct param_list_t {

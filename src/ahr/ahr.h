@@ -55,6 +55,9 @@ struct AhrConfig {
     float* mag_offset = nullptr; //mag offset[3] [adc_lsb]
     float* mag_scale = nullptr; //mag scale[3] [uT/adc_lsb]
     bool is_sensor_fusion = false; // true if the IMU does sensor fusion already
+    float *roll_bias = nullptr; // roll bias correction for sensor fusion IMUs
+    float *pitch_bias = nullptr; // pitch bias correction for sensor fusion IMUs
+    float *yaw_bias = nullptr; // yaw bias correction for sensor fusion IMUs
 };
 
 class AhrGizmo {

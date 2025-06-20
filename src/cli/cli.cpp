@@ -63,7 +63,7 @@ static void cli_print_imu_AccData() {
 }
 
 static void cli_print_imu_MagData() {
-  Serial.printf("mx:%+.2f\tmy:%+.2f\tmz:%+.2f\t", ahr.mx, ahr.my, ahr.mz); 
+  Serial.printf("mx:%+.2f\tmy:%+.2f\tmz:%+.2f\t", ahr.mx, ahr.my, ahr.mz);
 }
 
 static void cli_print_ahr_RollPitchYaw() {
@@ -131,7 +131,7 @@ static void cli_print_bat() {
   Serial.printf("bat.v:%.2f\t",bat.v);
   Serial.printf("bat.i:%+.2f\t",bat.i);
   Serial.printf("bat.mah:%+.2f\t",bat.mah);
-  Serial.printf("bat.wh:%+.2f\t",bat.wh); 
+  Serial.printf("bat.wh:%+.2f\t",bat.wh);
 }
 
 static void cli_print_bar() {
@@ -422,7 +422,7 @@ void Cli::print_i2cScan() {
       int count = 0;
       for (byte i = 1; i < 128; i++) {
         i2c->beginTransmission(i);          // Begin I2C transmission Address (i)
-        if (i2c->endTransmission() == 0) {  // Receive 0 = success (ACK response) 
+        if (i2c->endTransmission() == 0) {  // Receive 0 = success (ACK response)
           Serial.printf("0x%02X(%d) ", i, i);
           count++;
         }
@@ -450,68 +450,117 @@ void Cli::calibrate_IMU() {
 void Cli::calibrate_IMU2(bool gyro_only) {
   //Read IMU values, and average the readings
   int cnt = 3000;
-  float axerr = 0;
-  float ayerr = 0;
-  float azerr = 0;
-  float gxerr = 0;
-  float gyerr = 0;
-  float gzerr = 0;
-  for(int i=0; i<cnt; i++) {
-    imu.waitNewSample();
-    axerr += imu.ax;
-    ayerr += imu.ay;
-    azerr += imu.az;
-    gxerr += imu.gx;
-    gyerr += imu.gy;
-    gzerr += imu.gz;
+  if (!imu.hasSensorFusion()) {
+    float axerr = 0;
+    float ayerr = 0;
+    float azerr = 0;
+    float gxerr = 0;
+    float gyerr = 0;
+    float gzerr = 0;
+    for(int i=0; i<cnt; i++) {
+      imu.waitNewSample();
+      axerr += imu.ax;
+      ayerr += imu.ay;
+      azerr += imu.az;
+      gxerr += imu.gx;
+      gyerr += imu.gy;
+      gzerr += imu.gz;
+    }
+    axerr /= cnt;
+    ayerr /= cnt;
+    azerr /= cnt;
+    gxerr /= cnt;
+    gyerr /= cnt;
+    gzerr /= cnt;
+
+    //remove gravitation
+    azerr -= 1.0;
+
+    Serial.printf("set imu_cal_gx %+f #config was %+f\n", gxerr, cfg.imu_cal_gx);
+    Serial.printf("set imu_cal_gy %+f #config was %+f\n", gyerr, cfg.imu_cal_gy);
+    Serial.printf("set imu_cal_gz %+f #config was %+f\n", gzerr, cfg.imu_cal_gz);
+
+    bool apply_gyro = true;
+
+    if (gyro_only) {
+      //only apply reasonable gyro errors
+      float gtol = 10;
+      apply_gyro = ( -gtol < gxerr && gxerr < gtol  &&  -gtol < gyerr && gyerr < gtol  &&  -gtol < gzerr && gzerr < gtol );
+    }else{
+      Serial.printf("set imu_cal_ax %+f #config was %+f\n", axerr, cfg.imu_cal_ax);
+      Serial.printf("set imu_cal_ay %+f #config was %+f\n", ayerr, cfg.imu_cal_ay);
+      Serial.printf("set imu_cal_az %+f #config was %+f\n", azerr, cfg.imu_cal_az);
+    }
+  /*
+      //only apply reasonable acc errors
+      float atol = 0.1;
+      float aztol = 0.2;
+      apply_acc = ( -atol < axerr && axerr < atol  &&  -atol < ayerr && ayerr < atol  &&  -aztol < azerr && azerr < aztol );
+  */
+
+    if (apply_gyro) {
+      cfg.imu_cal_gx = gxerr;
+      cfg.imu_cal_gy = gyerr;
+      cfg.imu_cal_gz = gzerr;
+    }else{
+      Serial.println("=== Not applying gyro correction, out of tolerance ===");
+    }
+
+    if (!gyro_only) {
+      cfg.imu_cal_ax = axerr;
+      cfg.imu_cal_ay = ayerr;
+      cfg.imu_cal_az = azerr;
+    }
+  } else { // sensor fusion
+    // For IMUs with sensor fusion, calibrate orientation bias
+    // We need to get the fused roll/pitch/yaw and calculate bias from level position
+    float roll_bias = 0;
+    float pitch_bias = 0;
+    float yaw_bias = 0;
+
+    Serial.println("Calibrating sensor fusion IMU - keep the IMU level and still");
+    Serial.println("This will take about 10 seconds...");
+
+    for(int i=0; i<cnt; i++) {
+      imu.waitNewSample();
+      // Get raw quaternions from IMU (without bias correction)
+      float q0 = imu.q[0];
+      float q1 = imu.q[1];
+      float q2 = imu.q[2];
+      float q3 = imu.q[3];
+
+      // Calculate roll/pitch/yaw directly from quaternions (without bias correction)
+      float roll_raw = atan2(q0*q1 + q2*q3, 0.5f - q1*q1 - q2*q2) * 57.2957795132f;
+      float pitch_raw = asin(constrain(-2.0f * (q1*q3 - q0*q2), -1.0, 1.0)) * 57.2957795132f;
+      float yaw_raw = atan2(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3) * 57.2957795132f;
+
+      roll_bias += roll_raw;
+      pitch_bias += pitch_raw;
+      yaw_bias += yaw_raw;
+    }
+    roll_bias /= cnt;
+    pitch_bias /= cnt;
+    yaw_bias /= cnt;
+
+    Serial.printf("set imu_cal_roll_bias %+f #config was %+f\n", roll_bias, cfg.imu_cal_roll_bias);
+    Serial.printf("set imu_cal_pitch_bias %+f #config was %+f\n", pitch_bias, cfg.imu_cal_pitch_bias);
+    Serial.printf("set imu_cal_yaw_bias %+f #config was %+f\n", yaw_bias, cfg.imu_cal_yaw_bias);
+
+    // Apply reasonable tolerance checks
+    float angle_tol = 5.0; // 5 degrees tolerance
+    bool apply_correction = (abs(roll_bias) < angle_tol && abs(pitch_bias) < angle_tol);
+
+    if (apply_correction) {
+      cfg.imu_cal_roll_bias = roll_bias;
+      cfg.imu_cal_pitch_bias = pitch_bias;
+      cfg.imu_cal_yaw_bias = yaw_bias;
+    } else {
+      Serial.println("=== Not applying orientation correction, out of tolerance ===");
+      Serial.printf("Roll bias: %.2f°, Pitch bias: %.2f° (tolerance: ±%.1f°)\n",
+                   roll_bias, pitch_bias, angle_tol);
+    }
   }
-  axerr /= cnt;
-  ayerr /= cnt;
-  azerr /= cnt;
-  gxerr /= cnt;
-  gyerr /= cnt;
-  gzerr /= cnt;
 
-  //remove gravitation
-  azerr -= 1.0;
-
-
-  Serial.printf("set imu_cal_gx %+f #config was %+f\n", gxerr, cfg.imu_cal_gx);
-  Serial.printf("set imu_cal_gy %+f #config was %+f\n", gyerr, cfg.imu_cal_gy);
-  Serial.printf("set imu_cal_gz %+f #config was %+f\n", gzerr, cfg.imu_cal_gz);
-
-  bool apply_gyro = true;
-  
-  if (gyro_only) {
-    //only apply reasonable gyro errors
-    float gtol = 10;
-    apply_gyro = ( -gtol < gxerr && gxerr < gtol  &&  -gtol < gyerr && gyerr < gtol  &&  -gtol < gzerr && gzerr < gtol );
-  }else{
-    Serial.printf("set imu_cal_ax %+f #config was %+f\n", axerr, cfg.imu_cal_ax);
-    Serial.printf("set imu_cal_ay %+f #config was %+f\n", ayerr, cfg.imu_cal_ay);
-    Serial.printf("set imu_cal_az %+f #config was %+f\n", azerr, cfg.imu_cal_az);
-  }
-/*
-    //only apply reasonable acc errors
-    float atol = 0.1;
-    float aztol = 0.2;
-    apply_acc = ( -atol < axerr && axerr < atol  &&  -atol < ayerr && ayerr < atol  &&  -aztol < azerr && azerr < aztol );
-*/
-  
-  if (apply_gyro) {
-    cfg.imu_cal_gx = gxerr;
-    cfg.imu_cal_gy = gyerr;
-    cfg.imu_cal_gz = gzerr;
-  }else{
-     Serial.println("=== Not applying gyro correction, out of tolerance ===");
-  }
-
-  if (!gyro_only) {
-    cfg.imu_cal_ax = axerr;
-    cfg.imu_cal_ay = ayerr;
-    cfg.imu_cal_az = azerr;
-  }
-  
   Serial.println("Use 'save' to save these values to flash");
 }
 
@@ -568,7 +617,7 @@ bool Cli::_calibrate_Magnetometer_ReadMag(float *m) {
 
 // finds bias and scale factor calibration for the magnetometer, the sensor should be rotated in a figure 8 motion until complete
 // Note: Earth's field ranges between approximately 25 and 65 uT. (Europe & USA: 45-55 uT, inclination 50-70 degrees)
-bool Cli::_calibrate_Magnetometer(float bias[3], float scale[3]) 
+bool Cli::_calibrate_Magnetometer(float bias[3], float scale[3])
 {
   const int sample_interval = 10000; //in us
   const int maxCounts = 1000; //sample for at least 10 seconds @ 100Hz
@@ -594,7 +643,7 @@ bool Cli::_calibrate_Magnetometer(float bias[3], float scale[3])
     if ( abs(m[0] - mlast[0]) < 20 && abs(m[1] - mlast[1]) && abs(m[2] - mlast[2]) && m[0] != 0  && m[1] != 0 && m[2] != 0) break;
   }
   for(int i=0;i<3;i++) mlast[i] = m[i];
-  
+
   //save starting data
   for(int i=0;i<3;i++) {
     m_max[i] = m[i];
@@ -628,7 +677,7 @@ bool Cli::_calibrate_Magnetometer(float bias[3], float scale[3])
       }
       counter++;
     }
-    
+
     //print progress
     if (millis() - start_time > 1000) {
       start_time = millis();
@@ -638,7 +687,7 @@ bool Cli::_calibrate_Magnetometer(float bias[3], float scale[3])
 
   // find the magnetometer bias and scale
   float avg_scale = 0;
-  for(int i=0;i<3;i++) { 
+  for(int i=0;i<3;i++) {
     bias[i] = (m_max[i] + m_min[i]) / 2;
     scale[i] = (m_max[i] - m_min[i]) / 2;
     avg_scale += scale[i];
@@ -686,7 +735,7 @@ void Cli::calibrate_info(int seconds) {
       my.append(mag.y);
       mz.append(mag.z);
     }
-  } 
+  }
 
   Serial.println("=== Gyro ===");
   gx.print("gx[deg/s]     ");

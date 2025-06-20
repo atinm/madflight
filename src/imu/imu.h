@@ -109,6 +109,7 @@ class Imu : public ImuState {
     //methods
     bool waitNewSample(); //wait for new sample, returns false on fail
     bool hasMag(); //returns true if IMU has a magnetometer
+    bool hasSensorFusion(); //returns true if IMU has sensor fusion
     bool usesI2C(); //returns true if IMU uses I2C bus (not SPI bus)
     uint32_t getSampleRate() {return _sampleRate;}  //sensor sample rate in Hz
     uint32_t getSamplePeriod() {return (_sampleRate != 0 ? 1000000 / _sampleRate : 1000000);} //sensor sample period in us

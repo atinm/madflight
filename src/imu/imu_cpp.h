@@ -88,6 +88,7 @@ volatile uint32_t _imu_ll_interrupt_ts = 0;
 
 bool Imu::usesI2C() { return gizmo->uses_i2c; } //returns true if IMU uses I2C bus (not SPI bus)
 bool Imu::hasMag() { return gizmo->has_mag; }
+bool Imu::hasSensorFusion() { return gizmo->has_sensor_fusion; }
 
 //returns 0 on success, positive on error, negative on warning
 int Imu::setup() {
@@ -153,9 +154,6 @@ int Imu::setup() {
       }
       case Cfg::imu_gizmo_enum::mf_ICM20948 : {
         gizmo = new ImuGizmoICM20948(config.spi_bus, config.spi_cs, config.pin_int);
-        gizmo->uses_i2c = false;
-        gizmo->has_mag = true;
-        gizmo->has_sensor_fusion = true;
         break;
       }
       default: {

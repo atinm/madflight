@@ -84,6 +84,11 @@ bool Ahr::update() {
     //update euler angles
     computeAngles();
 
+    // Apply bias corrections for sensor fusion IMUs
+    if (config.roll_bias) roll -= *config.roll_bias;
+    if (config.pitch_bias) pitch -= *config.pitch_bias;
+    if (config.yaw_bias) yaw -= *config.yaw_bias;
+
     return true;
   }
 
@@ -105,7 +110,7 @@ bool Ahr::update() {
   gy += B_gyr * ((config.pimu->gy - config.gyr_offset[1]) - gy);
   gz += B_gyr * ((config.pimu->gz - config.gyr_offset[2]) - gz);
 
-  //Magnetometer (External chip, or internal in IMU chip) 
+  //Magnetometer (External chip, or internal in IMU chip)
   float _mx, _my, _mz;
   //If no external mag, then use internal mag
   if(!config.pmag || (config.pmag->x == 0 && config.pmag->y == 0 && config.pmag->z == 0)) {
@@ -178,7 +183,7 @@ void Ahr::getQFromMag(float *q) {
     q[3] = sin(yaw_rad/2);
     Serial.printf("AHR: Estimated yaw:%+.2f\n", yaw);
   }
-  
+
   //set dt,ts
   dt = 0;
   ts = micros();

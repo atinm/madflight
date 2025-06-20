@@ -95,7 +95,7 @@ private:
 public:
     ImuGizmoICM20948(SPIClass *spi, const uint8_t csPin, const uint8_t intPin)
         : _spi(spi), _csPin(csPin), _interrupt_pin(intPin) {
-        has_mag = true;
+        has_mag = false; // magnetometer TBD (not really needed for FPV)
         uses_i2c = false;
         has_sensor_fusion = true;
     }
@@ -151,7 +151,18 @@ public:
         _wrapped_imu.lowPower(false);
 
         if (has_sensor_fusion) {
-              // Initialize the DMP. initializeDMP is a weak function. You can overwrite it if you want to e.g. to change the sample rate
+            // Manually start up the magnetometer
+            status = _wrapped_imu.startupMagnetometer();
+            if (status != ICM_20948_Stat_Ok)
+            {
+                Serial.print(F("startupMagnetometer returned: "));
+                Serial.println(_wrapped_imu.statusString());
+                return status;
+            }
+            Serial.print(F("startupMagnetometer returned: "));
+            Serial.println(_wrapped_imu.statusString());
+
+            // Initialize the DMP. initializeDMP is a weak function. You can overwrite it if you want to e.g. to change the sample rate
             status = _wrapped_imu.initializeDMP();
             if (status != ICM_20948_Stat_Ok)
             {
@@ -177,33 +188,57 @@ public:
             //    INV_ICM20948_SENSOR_LINEAR_ACCELERATION         (16-bit accel + 32-bit 6-axis quaternion)
             //    INV_ICM20948_SENSOR_ORIENTATION                 (32-bit 9-axis quaternion + heading accuracy)
 
-            // Enable the DMP orientation sensor
-            status = _wrapped_imu.enableDMPSensor(INV_ICM20948_SENSOR_ORIENTATION);
-            if (status != ICM_20948_Stat_Ok)
-            {
-                Serial.print(F("enableDMPSensor returned: "));
-                Serial.println(_wrapped_imu.statusString());
-                return status;
-            }
+            if (has_mag) {
+                // Enable the DMP orientation sensor
+                Serial.println("Using Magnetometer");
+                status = _wrapped_imu.enableDMPSensor(INV_ICM20948_SENSOR_ORIENTATION);
+                if (status != ICM_20948_Stat_Ok)
+                {
+                    Serial.print(F("enableDMPSensor returned: "));
+                    Serial.println(_wrapped_imu.statusString());
+                    return status;
+                }
 
-            // Enable any additional sensors / features
-            //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE) == ICM_20948_Stat_Ok);
-            //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER) == ICM_20948_Stat_Ok);
-            //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_MAGNETIC_FIELD_UNCALIBRATED) == ICM_20948_Stat_Ok);
+                // Enable any additional sensors / features
+                //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE) == ICM_20948_Stat_Ok);
+                //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER) == ICM_20948_Stat_Ok);
+                //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_MAGNETIC_FIELD_UNCALIBRATED) == ICM_20948_Stat_Ok);
 
-            // Configuring DMP to output data at multiple ODRs:
-            // DMP is capable of outputting multiple sensor data at different rates to FIFO.
-            // Setting value can be calculated as follows:
-            // Value = (DMP running rate / ODR ) - 1
-            // E.g. For a 5Hz ODR rate when DMP is running at 55Hz, value = (55/5) - 1 = 10.
-            status = _wrapped_imu.setDMPODRrate(DMP_ODR_Reg_Quat9, 0); // Set to the maximum
-            if (status != ICM_20948_Stat_Ok)
-            {
-                Serial.print(F("setDMPODRrate returned: "));
-                Serial.println(_wrapped_imu.statusString());
-                return status;
-            }
+                // Configuring DMP to output data at multiple ODRs:
+                // DMP is capable of outputting multiple sensor data at different rates to FIFO.
+                // Setting value can be calculated as follows:
+                // Value = (DMP running rate / ODR ) - 1
+                // E.g. For a 5Hz ODR rate when DMP is running at 55Hz, value = (55/5) - 1 = 10.
+                status = _wrapped_imu.setDMPODRrate(DMP_ODR_Reg_Quat9, 0); // Set to the maximum
+                if (status != ICM_20948_Stat_Ok)
+                {
+                    Serial.print(F("setDMPODRrate returned: "));
+                    Serial.println(_wrapped_imu.statusString());
+                    return status;
+                }
+            } else {
+                Serial.println("Not using Magnetometer");
+                status = _wrapped_imu.enableDMPSensor(INV_ICM20948_SENSOR_GAME_ROTATION_VECTOR);
+                if (status != ICM_20948_Stat_Ok)
+                {
+                    Serial.print(F("enableDMPSensor returned: "));
+                    Serial.println(_wrapped_imu.statusString());
+                    return status;
+                }
                 
+                // Configuring DMP to output data at multiple ODRs:
+                // DMP is capable of outputting multiple sensor data at different rates to FIFO.
+                // Setting value can be calculated as follows:
+                // Value = (DMP running rate / ODR ) - 1
+                // E.g. For a 5Hz ODR rate when DMP is running at 55Hz, value = (55/5) - 1 = 10.
+                status = _wrapped_imu.setDMPODRrate(DMP_ODR_Reg_Quat6, 0); // Set to the maximum
+                if (status != ICM_20948_Stat_Ok)
+                {
+                    Serial.print(F("setDMPODRrate returned: "));
+                    Serial.println(_wrapped_imu.statusString());
+                    return status;
+                }
+            }
             //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Accel, 0) == ICM_20948_Stat_Ok); // Set to the maximum
             //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Gyro, 0) == ICM_20948_Stat_Ok); // Set to the maximum
             //success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Gyro_Calibr, 0) == ICM_20948_Stat_Ok); // Set to the maximum
@@ -444,6 +479,53 @@ public:
         *mz = _wrapped_imu.magZ();
     }
 
+    void get6DOF(float *q0, float *q1, float *q2, float *q3) {
+        // Read any DMP data waiting in the FIFO
+        // Note:
+        //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFONoDataAvail if no data is available.
+        //    If data is available, readDMPdataFromFIFO will attempt to read _one_ frame of DMP data.
+        //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFOIncompleteData if a frame was present but was incomplete
+        //    readDMPdataFromFIFO will return ICM_20948_Stat_Ok if a valid frame was read.
+        //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFOMoreDataAvail if a valid frame was read _and_ the FIFO contains more (unread) data.
+        icm_20948_DMP_data_t data;
+        _wrapped_imu.readDMPdataFromFIFO(&data);
+
+        if ((_wrapped_imu.status == ICM_20948_Stat_Ok) || (_wrapped_imu.status == ICM_20948_Stat_FIFOMoreDataAvail)) // Was valid data available?
+        {
+            //Serial.print(F("Received data! Header: 0x")); // Print the header in HEX so we can see what data is arriving in the FIFO
+            //if ( data.header < 0x1000) Serial.print( "0" ); // Pad the zeros
+            //if ( data.header < 0x100) Serial.print( "0" );
+            //if ( data.header < 0x10) Serial.print( "0" );
+            //Serial.println( data.header, HEX );
+
+            if ((data.header & DMP_header_bitmap_Quat6) > 0) // We have asked for GRV data so we should receive Quat6
+            {
+                // Q0 value is computed from this equation: Q0^2 + Q1^2 + Q2^2 + Q3^2 = 1.
+                // In case of drift, the sum will not add to 1, therefore, quaternion data need to be corrected with right bias values.
+                // The quaternion data is scaled by 2^30.
+
+                //Serial.printf("Quat6 data is: Q1:%ld Q2:%ld Q3:%ld\r\n", data.Quat6.Data.Q1, data.Quat6.Data.Q2, data.Quat6.Data.Q3);
+
+                // Scale to +/- 1
+                *q1 = (float)((double)data.Quat9.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
+                *q2 = (float)((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
+                *q3 = (float)((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
+                *q0 = (float)sqrt(1.0 - ((*q1 * *q1) + (*q2 * *q2) + (*q3 * *q3)));
+
+                // Convert from Android LH ENU to RH NED
+                float w = *q0;
+                float x = -(*q1);
+                float y = -(*q2);
+                float z = -(*q3);
+
+                *q0 = w;
+                *q1 = -y;    // +X_NED = North
+                *q2 = -x;    // +Y_NED = East
+                *q3 = z;     // +Z_NED = Down
+            }
+        }
+    }
+
     void get9DOF(float *q0, float *q1, float *q2, float *q3) {
         // Read any DMP data waiting in the FIFO
         // Note:
@@ -476,6 +558,17 @@ public:
                 *q2 = (float)((double)data.Quat9.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
                 *q3 = (float)((double)data.Quat9.Data.Q3) / 1073741824.0; // Convert to double. Divide by 2^30
                 *q0 = (float)sqrt(1.0 - ((*q1 * *q1) + (*q2 * *q2) + (*q3 * *q3)));
+
+                // Convert from Android LH ENU to RH NED
+                float w = *q0;
+                float x = -(*q1);
+                float y = -(*q2);
+                float z = -(*q3);
+
+                *q0 = w;
+                *q1 = -y;    // +X_NED = North
+                *q2 = -x;    // +Y_NED = East
+                *q3 = z;     // +Z_NED = Down
             }
         }
     }
