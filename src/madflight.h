@@ -247,6 +247,10 @@ void madflight_setup() {
   if(!imu.installed() && (Cfg::imu_gizmo_enum)cfg.imu_gizmo != Cfg::imu_gizmo_enum::mf_NONE) {
     madflight_die("IMU install failed.");
   }
+
+  // Set AHRS sensor fusion flag based on IMU capabilities
+  ahr.config.is_sensor_fusion = imu.hasSensorFusion();
+
   // start IMU update handler
   if(imu.installed()) {
     ahr.setInitalOrientation(); //do this before IMU update handler is started

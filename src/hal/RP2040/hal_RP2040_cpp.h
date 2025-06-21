@@ -1,5 +1,5 @@
 //Arduino version string
-#define HAL_ARDUINO_STR "Arduino-Pico v" ARDUINO_PICO_VERSION_STR 
+#define HAL_ARDUINO_STR "Arduino-Pico v" ARDUINO_PICO_VERSION_STR
 
 #ifndef MF_MCU_NAME
   #ifdef PICO_RP2350
@@ -113,7 +113,7 @@ void hal_setup() {
 void hal_eeprom_begin() {
   #ifdef DEBUG_EEPROM
     Serial.printf("hal_eeprom_begin()\n");
-  #endif 
+  #endif
   EEPROM.begin(4096);
 }
 
@@ -121,7 +121,7 @@ uint8_t hal_eeprom_read(uint32_t adr) {
   uint8_t val =EEPROM.read(adr);
   #ifdef DEBUG_EEPROM
     Serial.printf("EEr %04X:%02X\n", adr, val);
-  #endif  
+  #endif
   return val;
 }
 
@@ -135,7 +135,7 @@ void hal_eeprom_write(uint32_t adr, uint8_t val) {
 void hal_eeprom_commit() {
   #ifdef DEBUG_EEPROM
     Serial.printf("hal_eeprom_commit()\n");
-  #endif 
+  #endif
   EEPROM.commit();
 }
 
@@ -221,7 +221,7 @@ MF_Serial* hal_get_ser_bus(int bus_id, int baud, MF_SerialMode mode, bool invert
       break;
     }
 
-    //PIO UARTs 
+    //PIO UARTs
     case 2: {
       int pin_tx = cfg.pin_ser2_tx;
       int pin_rx = cfg.pin_ser2_rx;
@@ -247,7 +247,7 @@ MF_Serial* hal_get_ser_bus(int bus_id, int baud, MF_SerialMode mode, bool invert
     case 4: {
       int pin_tx = cfg.pin_ser4_tx;
       int pin_rx = cfg.pin_ser4_rx;
-      if(mode != MF_SerialMode::mf_SERIAL_8N1) Serial.printf("\nERROR: hal_get_ser_bus bus_id=%d invalid mode (PIO driver only supports 8N1)\n\n", bus_id);      
+      if(mode != MF_SerialMode::mf_SERIAL_8N1) Serial.printf("\nERROR: hal_get_ser_bus bus_id=%d invalid mode (PIO driver only supports 8N1)\n\n", bus_id);
       if(pin_tx >= 0 || pin_rx >= 0) {
         auto *ser = new SerialPioIRQ((pin_tx>=0 ? pin_tx : 0xFF), (pin_rx>=0 ? pin_rx : 0xFF), 256, 256);
         ser->begin(baud);
@@ -258,7 +258,7 @@ MF_Serial* hal_get_ser_bus(int bus_id, int baud, MF_SerialMode mode, bool invert
     case 5: {
       int pin_tx = cfg.pin_ser5_tx;
       int pin_rx = cfg.pin_ser5_rx;
-      if(mode != MF_SerialMode::mf_SERIAL_8N1) Serial.printf("\nERROR: hal_get_ser_bus bus_id=%d invalid mode (PIO driver only supports 8N1)\n\n", bus_id);      
+      if(mode != MF_SerialMode::mf_SERIAL_8N1) Serial.printf("\nERROR: hal_get_ser_bus bus_id=%d invalid mode (PIO driver only supports 8N1)\n\n", bus_id);
       if(pin_tx >= 0 || pin_rx >= 0) {
         auto *ser = new SerialPioIRQ((pin_tx>=0 ? pin_tx : 0xFF), (pin_rx>=0 ? pin_rx : 0xFF), 256, 256);
         ser->begin(baud);

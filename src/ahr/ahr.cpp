@@ -85,6 +85,35 @@ bool Ahr::update() {
     q[2] = config.pimu->q[2];
     q[3] = config.pimu->q[3];
 
+    // Also populate magnetometer data for compatibility with getQFromMag
+    //Magnetometer (External chip, or internal in IMU chip)
+    float _mx, _my, _mz;
+    //If no external mag, then use internal mag
+    if(!config.pmag || (config.pmag->x == 0 && config.pmag->y == 0 && config.pmag->z == 0)) {
+      _mx = config.pimu->mx;
+      _my = config.pimu->my;
+      _mz = config.pimu->mz;
+    }else{
+      _mx = config.pmag->x;
+      _my = config.pmag->y;
+      _mz = config.pmag->z;
+    }
+    //update the mag values
+    if( ! (_mx == 0 && _my == 0 && _mz == 0) ) {
+      //Correct the mag values with the calibration values
+      _mx = (_mx - config.mag_offset[0]) * config.mag_scale[0];
+      _my = (_my - config.mag_offset[1]) * config.mag_scale[1];
+      _mz = (_mz - config.mag_offset[2]) * config.mag_scale[2];
+      //Low-pass filtered magnetometer data
+      mx += B_mag * (_mx - mx);
+      my += B_mag * (_my - my);
+      mz += B_mag * (_mz - mz);
+    }else{
+      mx = 0;
+      my = 0;
+      mz = 0;
+    }
+
     //update euler angles
     computeAngles();
 
@@ -159,7 +188,9 @@ void Ahr::getQFromMag(float *q) {
   //warm up mag by getting 100 samples (imu should be running already)
   for(int i=0;i<100;i++) {
     uint32_t start = micros();
-    config.pmag->update();
+    if (config.pmag) {
+      config.pmag->update();
+    }
     while(micros() - start < 1000000 / config.pimu->getSampleRate()); //wait until next sample time
   }
 

@@ -33,7 +33,7 @@ uint16_t ImuGizmoICM20948::_convertGyroScale(uint16_t range) {
 ImuGizmoICM20948::ImuGizmoICM20948(SPIClass *spi, const uint8_t csPin, const uint8_t intPin)
     : _spi(spi), _csPin(csPin), _interrupt_pin(intPin) {
     _wrapped_imu = new ICM_20948_SPI();
-    has_mag = false; // magnetometer TBD (not really needed for FPV)
+    has_mag = true;
     uses_i2c = false;
     has_sensor_fusion = true;
     ImuGizmoICM20948::instance = this;
@@ -127,10 +127,30 @@ int ImuGizmoICM20948::begin(int gyro_scale_dps, int acc_scale_g, int rate_hz) {
                 return status;
             }
 
-            // Enable any additional sensors / features
-            //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE) == ICM_20948_Stat_Ok);
-            //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER) == ICM_20948_Stat_Ok);
-            //success &= (myICM.enableDMPSensor(INV_ICM20948_SENSOR_MAGNETIC_FIELD_UNCALIBRATED) == ICM_20948_Stat_Ok);
+            // Enable raw sensor data for AHRS compatibility
+            status = _wrapped_imu->enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE);
+            if (status != ICM_20948_Stat_Ok)
+            {
+                Serial.print(F("enableDMPSensor RAW_GYRO returned: "));
+                Serial.println(_wrapped_imu->statusString());
+                return status;
+            }
+
+            status = _wrapped_imu->enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER);
+            if (status != ICM_20948_Stat_Ok)
+            {
+                Serial.print(F("enableDMPSensor RAW_ACCEL returned: "));
+                Serial.println(_wrapped_imu->statusString());
+                return status;
+            }
+
+            status = _wrapped_imu->enableDMPSensor(INV_ICM20948_SENSOR_MAGNETIC_FIELD_UNCALIBRATED);
+            if (status != ICM_20948_Stat_Ok)
+            {
+                Serial.print(F("enableDMPSensor RAW_MAG returned: "));
+                Serial.println(_wrapped_imu->statusString());
+                return status;
+            }
 
             // Configuring DMP to output data at multiple ODRs:
             // DMP is capable of outputting multiple sensor data at different rates to FIFO.
@@ -141,6 +161,31 @@ int ImuGizmoICM20948::begin(int gyro_scale_dps, int acc_scale_g, int rate_hz) {
             if (status != ICM_20948_Stat_Ok)
             {
                 Serial.print(F("setDMPODRrate returned: "));
+                Serial.println(_wrapped_imu->statusString());
+                return status;
+            }
+
+            // Set ODR rates for raw sensor data
+            status = _wrapped_imu->setDMPODRrate(DMP_ODR_Reg_Accel, 0); // Set to the maximum
+            if (status != ICM_20948_Stat_Ok)
+            {
+                Serial.print(F("setDMPODRrate Accel returned: "));
+                Serial.println(_wrapped_imu->statusString());
+                return status;
+            }
+
+            status = _wrapped_imu->setDMPODRrate(DMP_ODR_Reg_Gyro, 0); // Set to the maximum
+            if (status != ICM_20948_Stat_Ok)
+            {
+                Serial.print(F("setDMPODRrate Gyro returned: "));
+                Serial.println(_wrapped_imu->statusString());
+                return status;
+            }
+
+            status = _wrapped_imu->setDMPODRrate(DMP_ODR_Reg_Cpass, 0); // Set to the maximum
+            if (status != ICM_20948_Stat_Ok)
+            {
+                Serial.print(F("setDMPODRrate Cpass returned: "));
                 Serial.println(_wrapped_imu->statusString());
                 return status;
             }
@@ -385,26 +430,76 @@ void ImuGizmoICM20948::getMotion6NED(float *ax, float *ay, float *az, float *gx,
 // acc: gravitation force is positive in axis direction
 // gyro: direction of positive rotation by right hand rule, i.e. positive is: yaw right, roll right, pitch up
 void ImuGizmoICM20948::getMotion9NED(float *ax, float *ay, float *az, float *gx, float *gy, float *gz, float *mx, float *my, float *mz) {
-    _wrapped_imu->getAGMT();
-    if (_wrapped_imu->status != ICM_20948_Stat_Ok)
-    {
-        Serial.print(F("getAGMT returned: "));
-        Serial.println(_wrapped_imu->statusString());
-        return;
+    if (has_sensor_fusion) {
+        // Read raw sensor data from DMP FIFO
+        icm_20948_DMP_data_t data;
+        _wrapped_imu->readDMPdataFromFIFO(&data);
+
+        if ((_wrapped_imu->status == ICM_20948_Stat_Ok) || (_wrapped_imu->status == ICM_20948_Stat_FIFOMoreDataAvail)) {
+            // Extract raw accelerometer data
+            if ((data.header & DMP_header_bitmap_Accel) > 0) {
+                *ax = (float)data.Raw_Accel.Data.X;
+                *ay = (float)data.Raw_Accel.Data.Y;
+                *az = (float)data.Raw_Accel.Data.Z;
+            } else {
+                *ax = 0; *ay = 0; *az = 0;
+            }
+
+            // Extract raw gyroscope data
+            if ((data.header & DMP_header_bitmap_Gyro) > 0) {
+                *gx = (float)data.Raw_Gyro.Data.X;
+                *gy = (float)data.Raw_Gyro.Data.Y;
+                *gz = (float)data.Raw_Gyro.Data.Z;
+            } else {
+                *gx = 0; *gy = 0; *gz = 0;
+            }
+
+            // Extract raw magnetometer data
+            if ((data.header & DMP_header_bitmap_Compass) > 0) {
+                *mx = (float)data.Compass.Data.X;
+                *my = (float)data.Compass.Data.Y;
+                *mz = (float)data.Compass.Data.Z;
+            } else {
+                *mx = 0; *my = 0; *mz = 0;
+            }
+        } else {
+            // If no DMP data available, fall back to getAGMT
+            _wrapped_imu->getAGMT();
+            if (_wrapped_imu->status != ICM_20948_Stat_Ok) {
+                Serial.print(F("getAGMT returned: "));
+                Serial.println(_wrapped_imu->statusString());
+                return;
+            }
+
+            *ax = _wrapped_imu->accX();
+            *ay = _wrapped_imu->accY();
+            *az = _wrapped_imu->accZ();
+            *gx = _wrapped_imu->gyrX();
+            *gy = _wrapped_imu->gyrY();
+            *gz = _wrapped_imu->gyrZ();
+            *mx = _wrapped_imu->magX();
+            *my = _wrapped_imu->magY();
+            *mz = _wrapped_imu->magZ();
+        }
+    } else {
+        // For non-sensor fusion mode, use the original getAGMT method
+        _wrapped_imu->getAGMT();
+        if (_wrapped_imu->status != ICM_20948_Stat_Ok) {
+            Serial.print(F("getAGMT returned: "));
+            Serial.println(_wrapped_imu->statusString());
+            return;
+        }
+
+        *ax = _wrapped_imu->accX();
+        *ay = _wrapped_imu->accY();
+        *az = _wrapped_imu->accZ();
+        *gx = _wrapped_imu->gyrX();
+        *gy = _wrapped_imu->gyrY();
+        *gz = _wrapped_imu->gyrZ();
+        *mx = _wrapped_imu->magX();
+        *my = _wrapped_imu->magY();
+        *mz = _wrapped_imu->magZ();
     }
-    //_wrapped_imu->clearInterrupts();
-
-    *ax = _wrapped_imu->accX();
-    *ay = _wrapped_imu->accY();
-    *az = _wrapped_imu->accZ();
-
-    *gx = _wrapped_imu->gyrX();
-    *gy = _wrapped_imu->gyrY();
-    *gz = _wrapped_imu->gyrZ();
-
-    *mx = _wrapped_imu->magX();
-    *my = _wrapped_imu->magY();
-    *mz = _wrapped_imu->magZ();
 }
 
 void ImuGizmoICM20948::get6DOF(float *q0, float *q1, float *q2, float *q3) {

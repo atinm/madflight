@@ -25,14 +25,14 @@ SOFTWARE.
 /*========================================================================================================================
 This file is kept as header to allow #IMU_xxx defines to be added in user code (Arduino IDE has no easy way to add -D compiler options)
 
-Body frame is NED: 
+Body frame is NED:
   x-axis North(front) - gyro-x roll right is positive - accelerometer-x vehicle right side down position is +1 G
   y-axis East(right)  - gyro-y pitch up is positive   - accelerometer-y vehicle nose down postion is +1 G
   z-axis Down         - gyro-z yaw right is positive  - accelerometer-z vehicle level position is +1 G
 
 MPU-6XXX and MPU-9XXX sensor family
 ===================================
-These are 6 or 9 axis sensors, with maximum sample rates: gyro 8 kHz, accel 4 kHz, and mag 100 Hz. The driver 
+These are 6 or 9 axis sensors, with maximum sample rates: gyro 8 kHz, accel 4 kHz, and mag 100 Hz. The driver
 configures gyro and accel with 1000 Hz sample rate (with on sensor 200 Hz low pass filter), and mag 100 Hz.
 
 ===================================
@@ -40,7 +40,7 @@ ICM-4xxxx sensors
 ===================================
 Currently only ICM45686 is supported.
 This is a 6 axis sensor, with maximum sample rates of 6.4khz, max gyro range 4000dps, max accelerometer range 32G
-Limitations: 
+Limitations:
 - The underlying driver lib supports only one sensor instance
 - only via SPI + interupt; I2C can be added using the same driver lib
 ========================================================================================================================*/
@@ -93,7 +93,7 @@ bool Imu::hasSensorFusion() { return gizmo->has_sensor_fusion; }
 //returns 0 on success, positive on error, negative on warning
 int Imu::setup() {
   cfg.printModule(MF_MOD);
-  
+
   //disable interrupt handler
   _imu_ll_interrupt_enabled = false;
 
@@ -265,10 +265,13 @@ bool Imu::update() {
 
   //get sensor data and update timestamps, count
   if(gizmo->has_mag) {
-    if (gizmo->has_sensor_fusion)
+    if (gizmo->has_sensor_fusion) {
       gizmo->get9DOF(&q[0], &q[1], &q[2], &q[3]);
-    else
+      // Also get raw sensor data for AHRS compatibility
       gizmo->getMotion9NED(&ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
+    } else {
+      gizmo->getMotion9NED(&ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
+    }
   }else{
     if (gizmo->has_sensor_fusion)
       gizmo->get6DOF(&q[0], &q[1], &q[2], &q[3]);
@@ -375,7 +378,7 @@ bool Imu::update() {
   this->dt = (update_ts - this->ts) / 1000000.0;
   this->ts = update_ts;
   this->update_cnt++;
-  
+
   return true; //FIXME: should only return true if new sample was retrieved
 }
 
@@ -422,8 +425,8 @@ void Imu::_interrupt_handler() {
 //========================================================================================================================//
 // _IMU_LL_ IMU Low Level Interrrupt Handler
 //========================================================================================================================//
-// This runs the IMU updates triggered from pin HW_PIN_IMU_EXTI interrupt. When using FreeRTOS with IMU_EXEC_FREERTOS the 
-// IMU update is not executed directly in the interrupt handler, but a high priority task is used. This prevents FreeRTOS 
+// This runs the IMU updates triggered from pin HW_PIN_IMU_EXTI interrupt. When using FreeRTOS with IMU_EXEC_FREERTOS the
+// IMU update is not executed directly in the interrupt handler, but a high priority task is used. This prevents FreeRTOS
 // watchdog resets. The delay (latency) from rising edge INT pin to handler is approx. 10 us on ESP32 and 50 us on RP2040.
 
 void _imu_ll_interrupt_handler();
@@ -446,7 +449,7 @@ void _imu_ll_interrupt_handler();
       #if IMU_EXEC == IMU_EXEC_FREERTOS_OTHERCORE
         int callcore = hal_get_core_num();
         int othercore = (callcore+1)%2;
-        
+
         //TODO move this to hal
         #if defined ARDUINO_ARCH_ESP32
           //note: probably don't what to use this because of single FPU context switching issues...
@@ -467,7 +470,7 @@ void _imu_ll_interrupt_handler();
     attachInterrupt(digitalPinToInterrupt(interrupt_pin), _imu_ll_interrupt_handler, mode);
     Serial.printf("Attached interrupt to pin %d with mode %d\n", interrupt_pin, mode);
   }
-  
+
   inline void _imu_ll_interrupt_handler2() {
     //let RTOS task _imu_ll_task handle the interrupt
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;

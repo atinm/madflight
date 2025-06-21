@@ -529,10 +529,11 @@ void Cli::calibrate_IMU2(bool gyro_only) {
       float q2 = imu.q[2];
       float q3 = imu.q[3];
 
-      // Calculate roll/pitch/yaw directly from quaternions (without bias correction)
-      float roll_raw = atan2(q0*q1 + q2*q3, 0.5f - q1*q1 - q2*q2) * 57.2957795132f;
-      float pitch_raw = asin(constrain(-2.0f * (q1*q3 - q0*q2), -1.0, 1.0)) * 57.2957795132f;
-      float yaw_raw = atan2(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3) * 57.2957795132f;
+      // Calculate roll/pitch/yaw directly from quaternions using the same formula as Ahr::computeAngles()
+      // This matches the NED frame convention used throughout MadFlight
+      float roll_raw = atan2(q0*q1 + q2*q3, 0.5f - q1*q1 - q2*q2) * 57.2957795132f; // roll right is positive
+      float pitch_raw = asin(constrain(-2.0f * (q1*q3 - q0*q2), -1.0, 1.0)) * 57.2957795132f; // pitch up is positive
+      float yaw_raw = -atan2(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3) * 57.2957795132f; // yaw right is positive
 
       roll_bias += roll_raw;
       pitch_bias += pitch_raw;
