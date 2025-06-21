@@ -2,11 +2,11 @@
 
 #include "../hal/hal.h"
 #include "rcl.h"
-#include "ibus/IBus.h"
+#include "ibus/src/IBus.h"
 
 class RclGizmoIbus : public RclGizmo {
   private:
-    RclGizmoIbus() {}
+    RclGizmoIbus(MF_Serial *ser_bus) : ibus(ser_bus) {}
     IBus ibus;
     MF_Serial *ser_bus;
     uint16_t *pwm;
@@ -17,10 +17,9 @@ class RclGizmoIbus : public RclGizmo {
       MF_Serial* ser_bus = hal_get_ser_bus(ser_bus_id, baud);
       if(!ser_bus) return nullptr;
 
-      auto gizmo = new RclGizmoIbus();
+      auto gizmo = new RclGizmoIbus(ser_bus);
       gizmo->ser_bus = ser_bus;
       gizmo->pwm = pwm;
-      gizmo->ibus.serial = ser_bus;
       gizmo->ibus.begin();
       return gizmo;
     }
