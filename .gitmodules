@@ -1,3 +1,6 @@
 [submodule "src/rcl/ibus"]
 	path = src/rcl/ibus
 	url = https://github.com/atinm/IBus
+[submodule "src/imu/ICM20948/SparkFun_ICM-20948_ArduinoLibrary"]
+	path = src/imu/ICM20948/SparkFun_ICM-20948_ArduinoLibrary
+	url = https://github.com/atinm/SparkFun_ICM-20948_ArduinoLibrary
