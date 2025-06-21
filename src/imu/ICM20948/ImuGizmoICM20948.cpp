@@ -1,4 +1,4 @@
-#include <ICM_20948.h>
+#include "SparkFun_ICM_20948_ArduinoLibrary/src/ICM_20948.h"
 #include "../ImuGizmoICM20948.h"
 
 // Static member initialization
