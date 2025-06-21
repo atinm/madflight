@@ -1,0 +1,3 @@
+[submodule "src/rcl/ibus"]
+	path = src/rcl/ibus
+	url = https://github.com/atinm/IBus
