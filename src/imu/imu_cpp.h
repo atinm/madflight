@@ -279,9 +279,12 @@ bool Imu::update() {
   //handle rotation for different mounting positions
   switch((Cfg::imu_align_enum)cfg.imu_align) {
     case Cfg::imu_align_enum::mf_CW0 :
+      // Input quaternion q[] is assumed to be in RH NED frame already
+      // No correction needed.
       break;
     case Cfg::imu_align_enum::mf_CW90 :
       if (gizmo->has_sensor_fusion) {
+        // Input quaternion q[] is assumed to be in RH NED frame already
         const float qc[4] = { 0.7071f, 0.0f, 0.0f, 0.7071f }; // +90° about Z
         applyQuatCorrection(q, qc);
       }
@@ -294,6 +297,7 @@ bool Imu::update() {
       break;
     case Cfg::imu_align_enum::mf_CW180 :
       if (gizmo->has_sensor_fusion) {
+        // Input quaternion q[] is assumed to be in RH NED frame already
         const float qc[4] = { 0.0f, 0.0f, 0.0f, 1.0f }; // 180° about Z
         applyQuatCorrection(q, qc);
       }
@@ -305,6 +309,7 @@ bool Imu::update() {
       break;
     case Cfg::imu_align_enum::mf_CW270 :
       if (gizmo->has_sensor_fusion) {
+        // Input quaternion q[] is assumed to be in RH NED frame already
         const float qc[4] = { 0.7071f, 0.0f, 0.0f, -0.7071f }; // -90° about Z
         applyQuatCorrection(q, qc);
       }
@@ -317,18 +322,20 @@ bool Imu::update() {
       break;
     case Cfg::imu_align_enum::mf_CW0FLIP :
       if (gizmo->has_sensor_fusion) {
-        const float qc[4] = { 0.0f, 1.0f, 0.0f, 0.0f }; // 180° about X (flip Z)
+        // Input quaternion q[] is assumed to be in RH NED frame already
+        const float qc[4] = { 0.0f, 1.0f, 0.0f, 0.0f }; // flip about X (Z up to Z down)
         applyQuatCorrection(q, qc);
       }
       else {
-        ax = ax; ay = -ay; az = -az;
-        gx = gx; gy = -gy; gz = -gz;
-        mx = mx; my = -my; mz = -mz;
+        az = -az;
+        gz = -gz;
+        mz = -mz;
       }
       break;
     case Cfg::imu_align_enum::mf_CW90FLIP :
       if (gizmo->has_sensor_fusion) {
-        const float qc[4] = { 0.5f, -0.5f, -0.5f, -0.5f }; // 90° CW + flip
+        // Input quaternion q[] is assumed to be in RH NED frame already
+        const float qc[4] = { 0.0f, 0.7071f, -0.7071f, 0.0f }; // +90° about Z then flip about X (Z up to down)
         applyQuatCorrection(q, qc);
       }
       else {
@@ -340,7 +347,8 @@ bool Imu::update() {
       break;
     case Cfg::imu_align_enum::mf_CW180FLIP :
       if (gizmo->has_sensor_fusion) {
-        const float qc[4] = { 0.0f, 0.0f, 1.0f, 0.0f }; // 180° about Y then flip
+        // Input quaternion q[] is assumed to be in RH NED frame already
+        const float qc[4] = { 0.0f, 0.0f, 1.0f, 0.0f }; // flip about Y
         applyQuatCorrection(q, qc);
       }
       else {
@@ -351,7 +359,8 @@ bool Imu::update() {
       break;
     case Cfg::imu_align_enum::mf_CW270FLIP :
       if (gizmo->has_sensor_fusion) {
-        const float qc[4] = { 0.5f, 0.5f, 0.5f, -0.5f }; // -90° + flip
+        // Input quaternion q[] is assumed to be in RH NED frame already
+        const float qc[4] = { 0.5f, 0.5f, -0.5f, 0.5f }; // -90° about Z then flip about X
         applyQuatCorrection(q, qc);
       }
       else {

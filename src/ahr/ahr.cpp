@@ -74,8 +74,12 @@ int Ahr::setup() {
 }
 
 bool Ahr::update() {
-  // if gizmo is already doing sensor fusion and returning quaternions, just set them
+  // if gizmo is already doing sensor fusion and returning quaternions, just set them and compute angles
   if (config.is_sensor_fusion) {
+    //update dt and ts
+    dt = (config.pimu->ts - ts) * 1e-6;
+    ts = config.pimu->ts;
+
     q[0] = config.pimu->q[0];
     q[1] = config.pimu->q[1];
     q[2] = config.pimu->q[2];
@@ -189,11 +193,11 @@ void Ahr::getQFromMag(float *q) {
   ts = micros();
 }
 
-//compute euler angles from q
+//compute euler angles from quaternion in RH NED form
 void Ahr::computeAngles() {
   roll = atan2(q[0]*q[1] + q[2]*q[3], 0.5f - q[1]*q[1] - q[2]*q[2]) * rad_to_deg; //degrees - roll right is positive
   pitch = asin(constrain(-2.0f * (q[1]*q[3] - q[0]*q[2]), -1.0, 1.0)) * rad_to_deg; //degrees - pitch up is positive - use constrain() to prevent NaN due to rounding
-  yaw = atan2(q[1]*q[2] + q[0]*q[3], 0.5f - q[2]*q[2] - q[3]*q[3]) * rad_to_deg; //degrees - yaw right is positive
+  yaw = -atan2(q[1]*q[2] + q[0]*q[3], 0.5f - q[2]*q[2] - q[3]*q[3]) * rad_to_deg; //degrees - yaw right is positive
 }
 
 //get acceleration in earth-frame up direction in [m/s^2]
