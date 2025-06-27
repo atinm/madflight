@@ -1,12 +1,13 @@
 #pragma once
 
+#include "../hal/MF_Serial.h"
 #include "../hal/hal.h"
 #include "rcl.h"
 #include "ibus/src/IBus.h"
 
 class RclGizmoIbus : public RclGizmo {
   private:
-    RclGizmoIbus(MF_Serial *ser_bus) : ibus(ser_bus) {}
+    RclGizmoIbus(MF_Serial *ser_bus) : ser_bus(ser_bus) {}
     IBus ibus;
     MF_Serial *ser_bus;
     uint16_t *pwm;
@@ -20,29 +21,20 @@ class RclGizmoIbus : public RclGizmo {
       auto gizmo = new RclGizmoIbus(ser_bus);
       gizmo->ser_bus = ser_bus;
       gizmo->pwm = pwm;
-      gizmo->ibus.begin();
+      gizmo->ibus.begin(*ser_bus, IBus::NO_TIMER);
       return gizmo;
     }
 
     int count = 0;
     bool update() override {
-      const char* mapping[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"};
-      bool rv = false;
-      while(ser_bus->available()) {
-        // we have received data on the UART
-        if (ibus.update()) {
-          // update pwm with decoded rc data
-          for (uint8_t i=0; i<IBus::PROTOCOL_CHANNELS;i++) {
-            pwm[i] = ibus.readChannel(i);
-            // if ((count % 1000) == 0) {
-            //   Serial.printf("%s: %d ", mapping[i], pwm[i]);
-            //   Serial.println();
-            // }
-          }
-          count++;
-          rv = true;
+      ibus.process_events();
+      if (ibus.has_new_data()) {
+        for (uint8_t i=0; i<IBus::MAX_CHANNELS; i++) {
+          pwm[i] = ibus.get_channel_value(i);
         }
+        count++;
+        return true;
       }
-      return rv;
+      return false;
     }
 };
